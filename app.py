@@ -12,7 +12,7 @@ except ImportError:
 # 페이지 설정
 st.set_page_config(
     page_title="국내 주식 재무제표 분석 및 투자 판단 프로그램",
-    page_layout="wide",
+    layout="wide",
 )
 
 st.title("📈 국내 주식 재무제표 분석 및 투자 판단 대시보드")
