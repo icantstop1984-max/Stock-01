@@ -41,7 +41,9 @@ if st.sidebar.button("분석 실행"):
     with st.spinner("데이터를 수집하고 분석하는 중입니다..."):
       try:
         # 1. DART 및 주가 데이터 초기화
-        dart = OpenDartReader(dart_api_key)
+      dart = OpenDartReader.OpenDartReader(dart_api_key)
+   except AttributeError:
+     dart = OpenDartReader(dart_api_key)  
 
         # 재무제표 수집 (연결재무제표 기준)
         fin_state = dart.finstate(stock_code, analysis_year)
