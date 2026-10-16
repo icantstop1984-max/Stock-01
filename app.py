@@ -1,7 +1,13 @@
 import FinanceDataReader as fdr
-import OpenDartReader
 import pandas as pd
 import streamlit as st
+
+# 소문자로 설치된 opendartreader를 안전하게 불러오는 코드
+try:
+  import OpenDartReader
+except ImportError:
+  import opendartreader as OpenDartReader
+
 
 # 페이지 설정
 st.set_page_config(
