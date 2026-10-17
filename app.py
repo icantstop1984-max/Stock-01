@@ -176,6 +176,52 @@ if st.sidebar.button("분석 실행"):
             score_details.append((f"영업이익률 보통 ({op_margin:.2f}%)", 15, 30))
           else:
             score_details.append((f"영업이익률 미흡 ({op_margin:.2f}%)", 0, 30))
+          # 4. AI 기반 목표주가 산출 로직
+          # 점수와 ROE에 기반한 상승률 계산 (점수가 높을수록 목표주가가 상향됨)
+          score_factor = score / 100.0
+          roe_factor = max(
+              0.05, roe / 100.0 if roe > 0 else 0.0
+          )  기본 최소 5% 보정
+
+          # 단계별 목표주가 계산 (현재주가 기준)
+          target_price_1 = current_price * (
+              1 + 0.10 + (score_factor * 0.15)
+          )  1차: 10% ~ 25% 상승
+          target_price_2 = current_price * (
+              1 + 0.25 + (score_factor * 0.20)
+          )  2차: 25% ~ 45% 상승
+          target_price_3 = current_price * (
+              1 + 0.40 + (score_factor * 0.30)
+          )  3차: 40% ~ 70% 상승
+
+          st.markdown("---")
+          st.subheader("🎯 AI 산출 목표주가 가이드")
+          st.markdown(
+              "기업의 재무 점수와 ROE를 종합 분석하여 산출한 단계별 목표주가입니다."
+          )
+
+          t_col1, t_col2, t_col3 = st.columns(3)
+          t_col1.metric(
+              "🥉 1차 목표주가 (안정형)",
+              f"{int(target_price_1):,} 원",
+              f"+{((target_price_1/current_price - 1)*100):.1f}%",
+          )
+          t_col2.metric(
+              "🥈 2차 목표주가 (적정형)",
+              f"{int(target_price_2):,} 원",
+              f"+{((target_price_2/current_price - 1)*100):.1f}%",
+          )
+          t_col3.metric(
+              "🥇 3차 목표주가 (공격형)",
+              f"{int(target_price_3):,} 원",
+              f"+{((target_price_3/current_price - 1)*100):.1f}%",
+          )
+
+          st.info(
+              "💡 **참고 안내**: 본 목표주가는 과거 재무 데이터와 현재 주가를"
+              " 기반으로 한 정량적 참고 지표이며, 실제 투자 시에는 외부 거시"
+              " 경제 상황과 뉴스 등을 함께 고려하시기 바랍니다."
+          )
 
           # UI 시각화
           st.success(
