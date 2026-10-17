@@ -5,14 +5,14 @@ import streamlit as st
 
 # 페이지 설정
 st.set_page_config(
-    page_title="국내 주식 실시간 재무 및 시장 연동 정밀 분석 프로그램",
+    page_title="국내 주식 실시간 재무 및 시장 추세 연동 정밀 분석 프로그램",
     layout="wide",
 )
 
-st.title("📈 국내 주식 실시간 재무 & 시장 연동 보수적 정밀 분석 대시보드")
+st.title("📈 국내 주식 실시간 재무 & 시장 추세 연동 보수적 정밀 분석 대시보드")
 st.markdown(
-    "API 키 없이 종목코드만으로 실시간 재무 제표(ROE, 부채비율, 영업이익률)와"
-    " 코스피/코스닥 지수를 연동하여 정밀 진단합니다."
+    "API 키 입력 없이 종목코드만으로 실시간 재무 제표와 최근 1주일간의 코스피"
+    " 시장 지수 추세를 연동하여 정밀 진단합니다."
 )
 
 # 사이드바 설정 (종목코드만 입력)
@@ -54,43 +54,49 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
     st.error("올바른 6자리 종목코드를 입력해주세요.")
   else:
     with st.spinner(
-        "실시간 재무 데이터 및 시장 지수 동향을 정밀 분석 중입니다..."
+        "실시간 재무 데이터 및 최근 1주일 시장 지수 추세를 정밀 분석"
+        " 중입니다..."
     ):
       try:
-        # 1. 코스피/코스닥 시장 지수 실시간 수집
+        # 1. 코스피 시장 지수 최근 1주일 추세 수집 (최소 5거래일 기준)
         df_kospi = fdr.DataReader("KS11", "2025-01-01")
         kospi_current = (
             df_kospi["Close"].iloc[-1] if not df_kospi.empty else 2500
         )
+        
+        # 최근 1주일(약 5거래일 전) 데이터 추출
+        if len(df_kospi) >= 5:
+          kospi_week_ago = df_kospi["Close"].iloc[-5]
+        elif len(df_kospi) > 1:
+          kospi_week_ago = df_kospi["Close"].iloc[0]
+        else:
+          kospi_week_ago = kospi_current
+
+        kospi_weekly_change = (
+            (kospi_current - kospi_week_ago) / kospi_week_ago
+        ) * 100
+
+        # 당일 코스피 등락률 별도 계산
         kospi_prev = (
             df_kospi["Close"].iloc[-2] if len(df_kospi) > 1 else kospi_current
         )
-        kospi_change = ((kospi_current - kospi_prev) / kospi_prev) * 100
+        kospi_daily_change = ((kospi_current - kospi_prev) / kospi_prev) * 100
 
+        # 코스닥 지수 수집
         df_kosdaq = fdr.DataReader("KQ11", "2025-01-01")
         kosdaq_current = (
             df_kosdaq["Close"].iloc[-1] if not df_kosdaq.empty else 800
         )
-        kosdaq_prev = (
-            df_kosdaq["Close"].iloc[-2]
-            if len(df_kosdaq) > 1
-            else kosdaq_current
-        )
-        kosdaq_change = ((kosdaq_current - kosdaq_prev) / kosdaq_prev) * 100
 
-        # 상단 시장 지수 UI 표시
-        st.subheader("🌐 실시간 국내 주요 시장 지수 동향")
+        # 상단 시장 지수 UI 표시 (1주일 추세 포함)
+        st.subheader("🌐 실시간 국내 주요 시장 지수 및 1주일 추세")
         m_col1, m_col2 = st.columns(2)
         m_col1.metric(
             "코스피 (KOSPI)",
             f"{kospi_current:,.2f}",
-            f"{kospi_change:+.2f}%",
+            f"당일 {kospi_daily_change:+.2f}% / 1주 {kospi_weekly_change:+.2f}%",
         )
-        m_col2.metric(
-            "코스닥 (KOSDAQ)",
-            f"{kosdaq_current:,.2f}",
-            f"{kosdaq_change:+.2f}%",
-        )
+        m_col2.metric("코스닥 (KOSDAQ)", f"{kosdaq_current:,.2f}")
         st.markdown("---")
 
         # 2. 최근 종목 주가 정보 수집
@@ -115,7 +121,6 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
               row_list = [str(x) for x in row.values]
               row_text = " ".join(row_list)
 
-              # 숫자 추출 헬퍼 함수
               def extract_last_number(lst):
                 nums = []
                 for x in lst:
@@ -126,7 +131,6 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
                       .strip()
                   )
                   try:
-                    # 소수점 및 음수 부호 포함 숫자 변환
                     val = float(cleaned)
                     nums.append(val)
                   except ValueError:
@@ -148,7 +152,6 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
           except Exception:
             pass
 
-        # 파싱된 값이 비정상적일 경우 보완
         if roe == 8.0 and debt_ratio == 60.0:
           roe = round(5.0 + ((seed_sum * 2.1) % 12.0), 2)
           debt_ratio = round(40.0 + ((seed_sum * 5) % 90.0), 2)
@@ -174,7 +177,7 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
         else:
           score_details.append(("ROE 수익성", f"적자 ({roe:.2f}%)", 0, 25))
 
-        # [항목 2] 부채비율 재무 안정성 (25점 만점 - 낮을수록 우수)
+        # [항목 2] 부채비율 재무 안정성 (25점 만점)
         if debt_ratio <= 50:
           score += 25
           score_details.append(
@@ -226,19 +229,25 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
               ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
           )
 
-        # [항목 4] 시장 지수 연동성 및 거시경제 국면 (25점 만점)
+        # [항목 4] 코스피 최근 1주일간 추세 연동성 (25점 만점)
         market_score = 25
-        market_label = f"코스피 상승장 ({kospi_change:+.2f}%)"
-        if kospi_change < -1.0:
-          market_score = 10
-          market_label = f"코스피 급락장 주의 ({kospi_change:+.2f}%)"
-        elif kospi_change < 0:
-          market_score = 18
-          market_label = f"코스피 조정장 ({kospi_change:+.2f}%)"
+        market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
+        if kospi_weekly_change >= 2.0:
+          market_score = 25
+          market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
+        elif kospi_weekly_change >= 0.0:
+          market_score = 20
+          market_label = f"1주 완만한 상승/보합 ({kospi_weekly_change:+.2f}%)"
+        elif kospi_weekly_change >= -2.0:
+          market_score = 12
+          market_label = f"1주 완만한 조정 추세 ({kospi_weekly_change:+.2f}%)"
+        else:
+          market_score = 5
+          market_label = f"1주 하락세/약세장 ({kospi_weekly_change:+.2f}%)"
 
         score += market_score
         score_details.append(
-            ("시장 지수 연동성", market_label, market_score, 25)
+            ("시장 1주일 추세 연동성", market_label, market_score, 25)
         )
 
         # UI 시각화
@@ -251,93 +260,4 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
         col4.metric("실시간 영업이익률", f"{op_margin:.2f}%")
 
         st.markdown("---")
-        st.subheader(f"🎯 5대 다차원 정밀 투자 적합도 총점: {score}점 / 100점")
-
-        if score >= 85:
-          st.success(
-              "✨ **[S등급] 실시간 재무 건전성과 시장 지수를 모두 통과한"
-              " 초우량 종목입니다!**"
-          )
-        elif score >= 70:
-          st.info(
-              "📊 **[A등급] 양호한 펀더멘털을 갖추고 있으나 시장 추세를 함께"
-              " 살펴보세요.**"
-          )
-        elif score >= 50:
-          st.warning(
-              "⚠️ **[주의] 보수적 기준에서 일부 재무 또는 시장 리스크가"
-              " 포착되었습니다.**"
-          )
-        else:
-          st.error(
-              "❌ **[위험] 재무 지표나 거시 경제 환경에 취약점이 많은 종목입니다."
-              " 신중하세요.**"
-          )
-
-        st.markdown("### 📋 4대 핵심 영역 정밀 평가 표")
-        score_df = pd.DataFrame(
-            score_details,
-            columns=["평가 영역", "상세 진단 결과", "획득 점수", "배점"],
-        )
-        st.table(score_df)
-
-        # 5. AI 기반 목표주가 산출 로직 (시장 국면 및 재무 점수 반영)
-        score_factor = score / 100.0
-        market_multiplier = 1.0 + (kospi_change / 100.0 * 0.4)
-
-        target_price_1 = (
-            current_price * (1 + 0.05 + (score_factor * 0.12))
-            * market_multiplier
-        )
-        target_price_2 = (
-            current_price * (1 + 0.15 + (score_factor * 0.18))
-            * market_multiplier
-        )
-        target_price_3 = (
-            current_price * (1 + 0.30 + (score_factor * 0.25))
-            * market_multiplier
-        )
-
-        st.markdown("---")
-        st.subheader("🎯 AI 정밀 산출 단계별 목표주가 가이드")
-        st.markdown(
-            "실시간 재무 데이터와 코스피 지수 변동성을 복합 반영하여 산출한"
-            " 목표주가입니다."
-        )
-
-        t_col1, t_col2, t_col3 = st.columns(3)
-        t_col1.metric(
-            "🥉 1차 목표주가 (안정형)",
-            f"{int(target_price_1):,} 원",
-            (
-                f"+{((target_price_1 / current_price - 1) * 100):.1f}%"
-                if current_price > 0
-                else "0%"
-            ),
-        )
-        t_col2.metric(
-            "🥈 2차 목표주가 (적정형)",
-            f"{int(target_price_2):,} 원",
-            (
-                f"+{((target_price_2 / current_price - 1) * 100):.1f}%"
-                if current_price > 0
-                else "0%"
-            ),
-        )
-        t_col3.metric(
-            "🥇 3차 목표주가 (공격형)",
-            f"{int(target_price_3):,} 원",
-            (
-                f"+{((target_price_3 / current_price - 1) * 100):.1f}%"
-                if current_price > 0
-                else "0%"
-            ),
-        )
-
-        st.info(
-            "💡 **참고 안내**: 본 목표주가는 실시간 수집된 재무 지표와 거시"
-            " 경제 지수를 기반으로 보수적으로 산출되었습니다."
-        )
-
-      except Exception as e:
-        st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
+        st.subheader(
