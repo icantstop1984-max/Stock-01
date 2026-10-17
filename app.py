@@ -127,7 +127,7 @@ if st.sidebar.button("정밀 분석 실행"):
         else:
           op_margin = 8.0
 
-        # 3. 뉴스 감성 분석 먼저 수행 (종합 점수에 반영하기 위함)
+        # 3. 뉴스 감성 분석 먼저 수행
         news_url = f"https://finance.naver.com/item/news.naver?code={stock_code}"
         headers = {
             "User-Agent": (
@@ -246,3 +246,144 @@ if st.sidebar.button("정밀 분석 실행"):
           )
 
         # [항목 3] 영업이익률 (본업 경쟁력) - 25점 만점 세분화
+        if op_margin >= 15:
+          score += 25
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"최상급 ({op_margin:.2f}%)", 25, 25)
+          )
+        elif op_margin >= 10:
+          score += 20
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 20, 25)
+          )
+        elif op_margin >= 5:
+          score += 12
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12, 25)
+          )
+        elif op_margin > 0:
+          score += 5
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 5, 25)
+          )
+        else:
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
+          )
+
+        # [항목 4] 시장 심리 및 뉴스 모멘텀 - 25점 만점 세분화
+        sentiment_score = 12
+        sentiment_label = "중립"
+        if pos_count > neg_count * 2:
+          sentiment_score = 25
+          sentiment_label = f"매우 긍정 (호재 우세: {pos_count}건)"
+        elif pos_count > neg_count:
+          sentiment_score = 18
+          sentiment_label = f"긍정 (우세: {pos_count}건)"
+        elif pos_count == neg_count:
+          sentiment_score = 12
+          sentiment_label = "혼조/중립"
+        else:
+          sentiment_score = 5
+          sentiment_label = f"주의/부정 (우려: {neg_count}건)"
+
+        score += sentiment_score
+        score_details.append(
+            ("시장 심리 (뉴스 감성)", sentiment_label, sentiment_score, 25)
+        )
+
+        # UI 시각화
+        st.success(f"정밀 분석 완료! (종목코드: {stock_code})")
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("현재 주가", f"{current_price:,} 원")
+        col2.metric("ROE (자기자본이익률)", f"{roe:.2f}%")
+        col3.metric("부채비율", f"{debt_ratio:.2f}%")
+        col4.metric("영업이익률", f"{op_margin:.2f}%")
+
+        st.markdown("---")
+        st.subheader(f"🎯 정밀 투자 적합도 총점: {score}점 / 100점")
+
+        if score >= 85:
+          st.success(
+              "✨ **[S등급] 투자 매력도가 매우 높은 최우수 우량 기업입니다!**"
+          )
+        elif score >= 70:
+          st.info(
+              "시장 평균 이상의 우수한 재무 구조와 모멘텀을 가진 기업입니다."
+          )
+        elif score >= 50:
+          st.warning(
+              "⚠️ **[보통] 일부 지표에 개선이 필요한 일반 수준의"
+              " 기업입니다.**"
+          )
+        else:
+          st.error(
+              "❌ **[주의] 재무 건전성 또는 시장 반응에 취약점이 발견된"
+              " 종목입니다.**"
+          )
+
+        st.markdown("### 📋 4대 핵심 영역 정밀 평가 표")
+        score_df = pd.DataFrame(
+            score_details,
+            columns=["평가 영역", "상세 진단 결과", "획득 점수", "배점"],
+        )
+        st.table(score_df)
+
+        # 뉴스 감성 분석 시각화 섹션
+        st.markdown("---")
+        st.subheader("📰 실시간 뉴스 키워드 감성 분석 결과")
+        n_col1, n_col2 = st.columns(2)
+        n_col1.metric("호재(긍정) 키워드 감지", f"{pos_count}건")
+        n_col2.metric("악재(부정) 키워드 감지", f"{neg_count}건")
+
+        if news_list:
+          with st.expander("📌 최근 주요 뉴스 헤드라인 보기"):
+            for idx, title in enumerate(news_list, 1):
+              st.markdown(f"{idx}. {title}")
+        else:
+          st.info("수집된 최근 뉴스가 없습니다.")
+
+        # 5. AI 기반 목표주가 산출 로직
+        score_factor = score / 100.0
+        target_price_1 = current_price * (1 + 0.10 + (score_factor * 0.15))
+        target_price_2 = current_price * (1 + 0.25 + (score_factor * 0.20))
+        target_price_3 = current_price * (1 + 0.40 + (score_factor * 0.30))
+
+        st.markdown("---")
+        st.subheader("🎯 AI 산출 단계별 목표주가 가이드")
+        st.markdown(
+            "정밀 재무 점수와 시장 감성 지수를 복합 반영하여 산출한 목표주가입니다."
+        )
+
+        t_col1, t_col2, t_col3 = st.columns(3)
+        t_col1.metric(
+            "🥉 1차 목표주가 (안정형)",
+            f"{int(target_price_1):,} 원",
+            f"+{((target_price_1/current_price - 1)*100):.1f}%"
+            if current_price > 0
+            else "0%",
+        )
+        t_col2.metric(
+            "🥈 2차 목표주가 (적정형)",
+            f"{int(target_price_2):,} 원",
+            f"+{((target_price_2/current_price - 1)*100):.1f}%"
+            if current_price > 0
+            else "0%",
+        )
+        t_col3.metric(
+            "🥇 3차 목표주가 (공격형)",
+            f"{int(target_price_3):,} 원",
+            f"+{((target_price_3/current_price - 1)*100):.1f}%"
+            if current_price > 0
+            else "0%",
+        )
+
+        st.info(
+            "💡 **참고 안내**: 본 목표주가는 정밀 재무 수치와 실시간 시장"
+            " 분위기를 계량화한 참고용 지표입니다. 실제 투자 결정 시에는"
+            " 거시 경제 환경 등을 함께 검토하세요."
+        )
+
+      except Exception as e:
+        st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
