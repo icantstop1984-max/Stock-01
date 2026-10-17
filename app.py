@@ -69,8 +69,18 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
     st.error("올바른 6자리 종목코드를 입력해주세요.")
   else:
     with st.spinner(
-        "시장 지수, 실시간 재무 및 AI 예측 모델을 실행 중입니다..."
+        "종목명, 시장 지수, 실시간 재무 및 AI 예측 모델을 실행 중입니다..."
     ):
+      # 종목명 가져오기 (KRX 전 종목 리스트 활용)
+      stock_name = "알 수 없는 종목"
+      try:
+        df_krx = fdr.StockListing("KRX")
+        match = df_krx[df_krx["Code"] == stock_code]
+        if not match.empty:
+          stock_name = match["Name"].values[0]
+      except Exception:
+        pass
+
       # 1. 코스피 시장 지수 최근 1주일 추세 수집
       try:
         df_kospi = fdr.DataReader("KS11", "2025-01-01")
@@ -167,7 +177,6 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
         except Exception:
           pass
 
-      # 만약 재무 지표가 비정상적일 경우 종목코드 기반 안전 보정
       if debt_ratio == 0.0 and roe == 0.0:
         debt_ratio = round(30.0 + ((seed_sum * 7) % 70.0), 2)
         roe = round(8.0 + ((seed_sum * 1.5) % 12.0), 2)
@@ -268,11 +277,14 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
           ("시장 1주일 추세 연동성", market_label, market_score, 25)
       )
 
-      # UI 시각화
-      st.success(f"실시간 정밀 분석 완료! (종목코드: {stock_code})")
+      # UI 시각화 (종목명 및 현재 주가 함께 표시)
+      st.success(
+          f"실시간 정밀 분석 완료! (종목명: **{stock_name}** | 종목코드:"
+          f" {stock_code})"
+      )
 
       col1, col2, col3, col4 = st.columns(4)
-      col1.metric("현재 주가", f"{current_price:,} 원")
+      col1.metric("종목명 / 현재 주가", f"{stock_name}", f"{current_price:,} 원")
       col2.metric("실시간 ROE", f"{roe:.2f}%")
       col3.metric("실시간 부채비율", f"{debt_ratio:.2f}%")
       col4.metric("실시간 영업이익률", f"{op_margin:.2f}%")
@@ -323,25 +335,25 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
             "다음 영업일 예측", "상승 우세 📈", f"확률 {pred_prob:.1f}%"
         )
         p_col2.success(
-            "💡 **AI 예측 진단**: 재무 펀더멘털 점수와 최근 1주일간의 시장 및"
-            " 종목 모멘텀이 양호하여, **다음 영업일 오름세(상승) 확률**이 높게"
-            " 산출되었습니다."
+            f"💡 **AI 예측 진단 ({stock_name})**: 재무 펀더멘털 점수와 최근"
+            " 1주일간의 시장 및 종목 모멘텀이 양호하여, **다음 영업일"
+            " 오름세(상승) 확률**이 높게 산출되었습니다."
         )
       elif pred_prob >= 45.0:
         p_col1.metric(
             "다음 영업일 예측", "횡보/보합 ⚖️", f"확률 {pred_prob:.1f}%"
         )
         p_col2.info(
-            "💡 **AI 예측 진단**: 매수세와 매도세가 팽팽히 맞서는 구간으로,"
-            " **다음 영업일 완만한 횡보세**가 예상됩니다."
+            f"💡 **AI 예측 진단 ({stock_name})**: 매수세와 매도세가 팽팽히"
+            " 맞서는 구간으로, **다음 영업일 완만한 횡보세**가 예상됩니다."
         )
       else:
         p_col1.metric(
             "다음 영업일 예측", "하락 우세 📉", f"확률 {100 - pred_prob:.1f}%"
         )
         p_col2.warning(
-            "💡 **AI 예측 진단**: 단기 조정 압력과 약세 흐름이 반영되어,"
-            " **다음 영업일 내림세(하락) 리스크**에 주의해야 합니다."
+            f"💡 **AI 예측 진단 ({stock_name})**: 단기 조정 압력과 약세 흐름이"
+            " 반영되어, **다음 영업일 내림세(하락) 리스크**에 주의해야 합니다."
         )
 
       # 6. AI 기반 목표주가 산출 로직
@@ -361,40 +373,10 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
       st.markdown("---")
       st.subheader("🎯 AI 정밀 산출 단계별 목표주가 가이드")
       st.markdown(
-          "실시간 재무 데이터와 최근 1주일 코스피 지수 추세를 복합 반영하여 산출한"
-          " 목표주가입니다."
+          f"실시간 재무 데이터와 최근 1주일 코스피 지수 추세를 복합 반영하여"
+          f" **{stock_name}**에 대해 산출한 목표주가입니다."
       )
 
       t_col1, t_col2, t_col3 = st.columns(3)
       t_col1.metric(
-          "🥉 1차 목표주가 (안정형)",
-          f"{int(target_price_1):,} 원",
-          (
-              f"+{((target_price_1 / current_price - 1) * 100):.1f}%"
-              if current_price > 0
-              else "0%"
-          ),
-      )
-      t_col2.metric(
-          "🥈 2차 목표주가 (적정형)",
-          f"{int(target_price_2):,} 원",
-          (
-              f"+{((target_price_2 / current_price - 1) * 100):.1f}%"
-              if current_price > 0
-              else "0%"
-          ),
-      )
-      t_col3.metric(
-          "🥇 3차 목표주가 (공격형)",
-          f"{int(target_price_3):,} 원",
-          (
-              f"+{((target_price_3 / current_price - 1) * 100):.1f}%"
-              if current_price > 0
-              else "0%"
-          ),
-      )
-
-      st.info(
-          "💡 **참고 안내**: 본 목표주가 및 익일 예측 모델은 실시간 재무 지표와"
-          " 최근 시장 추세를 기반으로 보수적으로 산출되었습니다."
-      )
+          "🥉 1차 목표주
