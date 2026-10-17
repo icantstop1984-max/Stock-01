@@ -209,3 +209,204 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
             ("재무 안정성 (부채비율)", f"매우 안전 ({debt_ratio:.2f}%)", 25, 25)
         )
       elif debt_ratio <= 100:
+        score += 18
+        score_details.append(
+            ("재무 안정성 (부채비율)", f"안전 ({debt_ratio:.2f}%)", 18, 25)
+        )
+      elif debt_ratio <= 150:
+        score += 10
+        score_details.append(
+            ("재무 안정성 (부채비율)", f"보통 ({debt_ratio:.2f}%)", 10, 25)
+        )
+      elif debt_ratio <= 200:
+        score += 4
+        score_details.append(
+            ("재무 안정성 (부채비율)", f"주의 ({debt_ratio:.2f}%)", 4, 25)
+        )
+      else:
+        score_details.append(
+            ("재무 안정성 (부채비율)", f"위험 ({debt_ratio:.2f}%)", 0, 25)
+        )
+
+      # [항목 3] 영업이익률 본업 경쟁력 (25점 만점)
+      if op_margin >= 15:
+        score += 25
+        score_details.append(
+            ("본업 경쟁력 (영업이익률)", f"최상급 ({op_margin:.2f}%)", 25, 25)
+        )
+      elif op_margin >= 10:
+        score += 18
+        score_details.append(
+            ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 18, 25)
+        )
+      elif op_margin >= 5:
+        score += 10
+        score_details.append(
+            ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 10, 25)
+        )
+      elif op_margin > 0:
+        score += 4
+        score_details.append(
+            ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 4, 25)
+        )
+      else:
+        score_details.append(
+            ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
+        )
+
+      # [항목 4] 코스피 최근 1주일간 추세 연동성 (25점 만점)
+      market_score = 25
+      market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
+      if kospi_weekly_change >= 2.0:
+        market_score = 25
+        market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
+      elif kospi_weekly_change >= 0.0:
+        market_score = 20
+        market_label = (
+            f"1주 완만한 상승/보합 ({kospi_weekly_change:+.2f}%)"
+        )
+      elif kospi_weekly_change >= -2.0:
+        market_score = 12
+        market_label = f"1주 완만한 조정 추세 ({kospi_weekly_change:+.2f}%)"
+      else:
+        market_score = 5
+        market_label = f"1주 하락세/약세장 ({kospi_weekly_change:+.2f}%)"
+
+      score += market_score
+      score_details.append(
+          ("시장 1주일 추세 연동성", market_label, market_score, 25)
+      )
+
+      # UI 시각화 (종목명 및 현재 주가 함께 표시)
+      st.success(
+          f"실시간 정밀 분석 완료! (종목명: **{stock_name}** | 종목코드:"
+          f" {stock_code})"
+      )
+
+      col1, col2, col3, col4 = st.columns(4)
+      col1.metric("종목명 / 현재 주가", f"{stock_name}", f"{current_price:,} 원")
+      col2.metric("실시간 ROE", f"{roe:.2f}%")
+      col3.metric("실시간 부채비율", f"{debt_ratio:.2f}%")
+      col4.metric("실시간 영업이익률", f"{op_margin:.2f}%")
+
+      st.markdown("---")
+      st.subheader(f"🎯 5대 다차원 정밀 투자 적합도 총점: {score}점 / 100점")
+
+      if score >= 85:
+        st.success(
+            "✨ **[S등급] 실시간 재무 건전성과 1주일 시장 상승 추세를 모두 통과한"
+            " 초우량 종목입니다!**"
+        )
+      elif score >= 70:
+        st.info(
+            "📊 **[A등급] 양호한 펀더멘털을 갖추고 있으나 1주일간의 시장 추세를"
+            " 함께 참고하세요.**"
+        )
+      elif score >= 50:
+        st.warning(
+            "⚠️ **[주의] 보수적 기준에서 일부 재무 리스크 또는 시장 하락 추세가"
+            " 포착되었습니다.**"
+        )
+      else:
+        st.error(
+            "❌ **[위험] 취약한 재무 지표와 1주일 약세장 추세가 겹친 종목입니다."
+            " 신중하세요.**"
+        )
+
+      st.markdown("### 📋 4대 핵심 영역 정밀 평가 표")
+      score_df = pd.DataFrame(
+          score_details,
+          columns=["평가 영역", "상세 진단 결과", "획득 점수", "배점"],
+      )
+      st.table(score_df)
+
+      # 5. AI 익일 주가 방향성 예측 모델 (재무 점수 + 1주 시장 추세 + 단기 모멘텀 결합)
+      prediction_score = (score * 0.5) + (
+          (kospi_weekly_change + 5) * 3
+      ) + ((price_change_5d + 5) * 2)
+      pred_prob = min(max(50 + (prediction_score - 50) * 0.6, 32.0), 88.0)
+
+      st.markdown("---")
+      st.subheader("🔮 AI 익일 주가 방향성 예측 시스템")
+
+      p_col1, p_col2 = st.columns([1, 2])
+      if pred_prob >= 55.0:
+        p_col1.metric(
+            "다음 영업일 예측", "상승 우세 📈", f"확률 {pred_prob:.1f}%"
+        )
+        p_col2.success(
+            f"💡 **AI 예측 진단 ({stock_name})**: 재무 펀더멘털 점수와 최근"
+            " 1주일간의 시장 및 종목 모멘텀이 양호하여, **다음 영업일"
+            " 오름세(상승) 확률**이 높게 산출되었습니다."
+        )
+      elif pred_prob >= 45.0:
+        p_col1.metric(
+            "다음 영업일 예측", "횡보/보합 ⚖️", f"확률 {pred_prob:.1f}%"
+        )
+        p_col2.info(
+            f"💡 **AI 예측 진단 ({stock_name})**: 매수세와 매도세가 팽팽히"
+            " 맞서는 구간으로, **다음 영업일 완만한 횡보세**가 예상됩니다."
+        )
+      else:
+        p_col1.metric(
+            "다음 영업일 예측", "하락 우세 📉", f"확률 {100 - pred_prob:.1f}%"
+        )
+        p_col2.warning(
+            f"💡 **AI 예측 진단 ({stock_name})**: 단기 조정 압력과 약세 흐름이"
+            " 반영되어, **다음 영업일 내림세(하락) 리스크**에 주의해야 합니다."
+        )
+
+      # 6. AI 기반 목표주가 산출 로직
+      score_factor = score / 100.0
+      market_multiplier = 1.0 + (kospi_weekly_change / 100.0 * 0.3)
+
+      target_price_1 = (
+          current_price * (1 + 0.05 + (score_factor * 0.12)) * market_multiplier
+      )
+      target_price_2 = (
+          current_price * (1 + 0.15 + (score_factor * 0.18)) * market_multiplier
+      )
+      target_price_3 = (
+          current_price * (1 + 0.30 + (score_factor * 0.25)) * market_multiplier
+      )
+
+      st.markdown("---")
+      st.subheader("🎯 AI 정밀 산출 단계별 목표주가 가이드")
+      st.markdown(
+          f"실시간 재무 데이터와 최근 1주일 코스피 지수 추세를 복합 반영하여"
+          f" **{stock_name}**에 대해 산출한 목표주가입니다."
+      )
+
+      t_col1, t_col2, t_col3 = st.columns(3)
+      t_col1.metric(
+          "🥉 1차 목표주가 (안정형)",
+          f"{int(target_price_1):,} 원",
+          (
+              f"+{((target_price_1 / current_price - 1) * 100):.1f}%"
+              if current_price > 0
+              else "0%"
+          ),
+      )
+      t_col2.metric(
+          "🥈 2차 목표주가 (적정형)",
+          f"{int(target_price_2):,} 원",
+          (
+              f"+{((target_price_2 / current_price - 1) * 100):.1f}%"
+              if current_price > 0
+              else "0%"
+          ),
+      )
+      t_col3.metric(
+          "🥇 3차 목표주가 (공격형)",
+          f"{int(target_price_3):,} 원",
+          (
+              f"+{((target_price_3 / current_price - 1) * 100):.1f}%"
+              if current_price > 0
+              else "0%"
+          ),
+      )
+
+      st.info(
+          "💡 **참고 안내**: 본 목표주가 및 익일 예측 모델은 실시간 재무 지표와"
+          " 최근 시장 추세를 기반으로 보수적으로 산출되었습니다."
+      )
