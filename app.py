@@ -24,17 +24,19 @@ dart_api_key = st.sidebar.text_input(
 stock_code = st.sidebar.text_input(
     "종목코드 입력 (예: 005930)", value="005930"
 )
-analysis_year = st.sidebar.selectbox("분석 기준 연도", [2026, 2025, 2024, 2023, 2022], index=0)
+analysis_year = st.sidebar.selectbox(
+    "분석 기준 연도", [2026, 2025, 2024, 2023, 2022], index=0
+)
 
 
-# DART 재무제표 데이터를 직접 가져오는 함수 (패키지 충돌 방지용)
+# DART 재무제표 데이터를 직접 가져오는 함수
 def get_dart_financials(api_key, corp_code, year):
   url = "https://opendart.fss.or.kr/api/fnlttSinglAcnt.json"
   params = {
       "crtfc_key": api_key,
       "corp_code": corp_code,
       "bsns_year": str(year),
-      "reprt_code": "11011",  # 사업보고서 (1분기: 11013, 반기: 11012, 3분기: 11014)
+      "reprt_code": "11011",  # 사업보고서
   }
   response = requests.get(url, params=params)
   if response.status_code == 200:
@@ -48,23 +50,26 @@ def get_dart_financials(api_key, corp_code, year):
 def get_corp_code(api_key, stock_code):
   import io
   import zipfile
+  import xml.etree.ElementTree as ET
 
   url = "https://opendart.fss.or.kr/api/corpCode.xml"
   params = {"crtfc_key": api_key}
   res = requests.get(url, params=params)
-  if res.status_code == 200:
-    z = zipfile.ZipFile(io.BytesIO(res.content))
-    for filename in z.namelist():
-      if filename.endswith(".xml"):
-        import xml.etree.ElementTree as ET
 
-        xml_data = z.read(filename)
-        root = ET.fromstring(xml_data)
-        for corp in root.findall("list"):
-          code = corp.find("stock_code")
-          if code is not None and code.text == stock_code:
-            c_code = corp.find("corp_code")
-            return c_code.text if c_code is not None else None
+  if res.status_code == 200 and res.content.startswith(b"PK"):
+    try:
+      z = zipfile.ZipFile(io.BytesIO(res.content))
+      for filename in z.namelist():
+        if filename.endswith(".xml"):
+          xml_data = z.read(filename)
+          root = ET.fromstring(xml_data)
+          for corp in root.findall("list"):
+            code = corp.find("stock_code")
+            if code is not None and code.text == stock_code:
+              c_code = corp.find("corp_code")
+              return c_code.text if c_code is not None else None
+    except Exception:
+      return None
   return None
 
 
@@ -98,14 +103,12 @@ if st.sidebar.button("분석 실행"):
           # 데이터 추출 헬퍼 함수
           def find_val(item_name):
             for item in fin_list:
-              # 연결재무제표(CFS) 또는 개별재무제표(OFS) 기준 계정명 확인
               if item.get("account_nm") == item_name and item.get(
                   "fs_div"
               ) in ["CFS", "OF"]:
                 val = item.get("thstrm_amount", "0")
                 if val and val != "-":
                   return float(str(val).replace(",", ""))
-            # 만약 정확히 일치하는 게 없으면 부분 일치 검색
             for item in fin_list:
               if item_name in item.get("account_nm", ""):
                 val = item.get("thstrm_amount", "0")
@@ -176,52 +179,6 @@ if st.sidebar.button("분석 실행"):
             score_details.append((f"영업이익률 보통 ({op_margin:.2f}%)", 15, 30))
           else:
             score_details.append((f"영업이익률 미흡 ({op_margin:.2f}%)", 0, 30))
-          # 4. AI 기반 목표주가 산출 로직
-          # 점수와 ROE에 기반한 상승률 계산 (점수가 높을수록 목표주가가 상향됨)
-          score_factor = score / 100.0
-          roe_factor = max(
-              0.05, roe / 100.0 if roe > 0 else 0.0
-          )  기본 최소 5% 보정
-
-          # 단계별 목표주가 계산 (현재주가 기준)
-          target_price_1 = current_price * (
-              1 + 0.10 + (score_factor * 0.15)
-          )  1차: 10% ~ 25% 상승
-          target_price_2 = current_price * (
-              1 + 0.25 + (score_factor * 0.20)
-          )  2차: 25% ~ 45% 상승
-          target_price_3 = current_price * (
-              1 + 0.40 + (score_factor * 0.30)
-          )  3차: 40% ~ 70% 상승
-
-          st.markdown("---")
-          st.subheader("🎯 AI 산출 목표주가 가이드")
-          st.markdown(
-              "기업의 재무 점수와 ROE를 종합 분석하여 산출한 단계별 목표주가입니다."
-          )
-
-          t_col1, t_col2, t_col3 = st.columns(3)
-          t_col1.metric(
-              "🥉 1차 목표주가 (안정형)",
-              f"{int(target_price_1):,} 원",
-              f"+{((target_price_1/current_price - 1)*100):.1f}%",
-          )
-          t_col2.metric(
-              "🥈 2차 목표주가 (적정형)",
-              f"{int(target_price_2):,} 원",
-              f"+{((target_price_2/current_price - 1)*100):.1f}%",
-          )
-          t_col3.metric(
-              "🥇 3차 목표주가 (공격형)",
-              f"{int(target_price_3):,} 원",
-              f"+{((target_price_3/current_price - 1)*100):.1f}%",
-          )
-
-          st.info(
-              "💡 **참고 안내**: 본 목표주가는 과거 재무 데이터와 현재 주가를"
-              " 기반으로 한 정량적 참고 지표이며, 실제 투자 시에는 외부 거시"
-              " 경제 상황과 뉴스 등을 함께 고려하시기 바랍니다."
-          )
 
           # UI 시각화
           st.success(
@@ -256,6 +213,47 @@ if st.sidebar.button("분석 실행"):
               score_details, columns=["평가 항목", "획득 점수", "배점"]
           )
           st.table(score_df)
+
+          # 4. AI 기반 목표주가 산출 로직
+          score_factor = score / 100.0
+          target_price_1 = current_price * (1 + 0.10 + (score_factor * 0.15))
+          target_price_2 = current_price * (1 + 0.25 + (score_factor * 0.20))
+          target_price_3 = current_price * (1 + 0.40 + (score_factor * 0.30))
+
+          st.markdown("---")
+          st.subheader("🎯 AI 산출 목표주가 가이드")
+          st.markdown(
+              "기업의 재무 점수와 ROE를 종합 분석하여 산출한 단계별 목표주가입니다."
+          )
+
+          t_col1, t_col2, t_col3 = st.columns(3)
+          t_col1.metric(
+              "🥉 1차 목표주가 (안정형)",
+              f"{int(target_price_1):,} 원",
+              f"+{((target_price_1/current_price - 1)*100):.1f}%"
+              if current_price > 0
+              else "0%",
+          )
+          t_col2.metric(
+              "🥈 2차 목표주가 (적정형)",
+              f"{int(target_price_2):,} 원",
+              f"+{((target_price_2/current_price - 1)*100):.1f}%"
+              if current_price > 0
+              else "0%",
+          )
+          t_col3.metric(
+              "🥇 3차 목표주가 (공격형)",
+              f"{int(target_price_3):,} 원",
+              f"+{((target_price_3/current_price - 1)*100):.1f}%"
+              if current_price > 0
+              else "0%",
+          )
+
+          st.info(
+              "💡 **참고 안내**: 본 목표주가는 과거 재무 데이터와 현재 주가를"
+              " 기반으로 한 정량적 참고 지표이며, 실제 투자 시에는 외부 거시"
+              " 경제 상황과 뉴스 등을 함께 고려하시기 바랍니다."
+          )
 
       except Exception as e:
         st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
