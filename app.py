@@ -122,3 +122,23 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
       m_col1.metric(
           "코스피 (KOSPI)",
           f"{kospi_current:,.2f}",
+          f"당일 {kospi_daily_change:+.2f}% / 1주 {kospi_weekly_change:+.2f}%",
+      )
+      m_col2.metric("코스닥 (KOSDAQ)", f"{kosdaq_current:,.2f}")
+      st.markdown("---")
+
+      # 2. 최근 종목 주가 정보 및 단기 모멘텀 수집
+      try:
+        df_price = fdr.DataReader(stock_code, "2025-01-01")
+      except Exception:
+        df_price = pd.DataFrame()
+
+      current_price = (
+          df_price["Close"].iloc[-1] if not df_price.empty else 50000
+      )
+      price_change_5d = 0.0
+      if len(df_price) >= 5:
+        p_start = df_price["Close"].iloc[-5]
+        price_change_5d = ((current_price - p_start) / p_start) * 100
+
+      # 
