@@ -44,6 +44,21 @@ def get_naver_financials(code):
   return None
 
 
+# 숫자 추출 헬퍼 함수
+def extract_all_numbers(lst):
+  nums = []
+  for x in lst:
+    cleaned = (
+        str(x).replace(",", "").replace("%", "").replace("E", "").replace("N/A", "").strip()
+    )
+    try:
+      val = float(cleaned)
+      nums.append(val)
+    except ValueError:
+      pass
+  return nums
+
+
 if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
   if not stock_code or len(stock_code) != 6:
     st.error("올바른 6자리 종목코드를 입력해주세요.")
@@ -117,5 +132,11 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
           row_list = [str(x) for x in row.values]
           row_text = " ".join(row_list)
 
-          def extract_all_numbers(lst):
-            nums = []
+          if "부채비율" in row_text:
+            nums = extract_all_numbers(row_list)
+            if nums:
+              valid_debt = [n for n in nums if 0 <= n <= 2000]
+              if valid_debt:
+                debt_ratio = valid_debt[-1]
+          elif "ROE" in row_text and "ROE" not in row_text[30:]:
+            nums = extract_all_numbers(row_
