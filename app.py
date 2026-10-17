@@ -12,7 +12,7 @@ st.set_page_config(
 
 st.title("📈 국내 주식 재무제표 정밀 분석 및 투자 판단 대시보드")
 st.markdown(
-    "API 키 없이 종목코드만으로 재무 건전성, 수익성, 실시간 시장 반응을 정밀"
+    "API 키 입력 없이 종목코드만으로 재무 건전성, 수익성, 실시간 시장 반응을 정밀"
     " 진단합니다."
 )
 
@@ -215,7 +215,9 @@ if st.sidebar.button("정밀 분석 실행"):
           score += 5
           score_details.append(("ROE 수익성", f"미흡 ({roe:.2f}%)", 5, 25))
         else:
-          score_details.append(("ROE 수익성", f"위험/적자 ({roe:.2f}%)", 0, 25))
+          score_details.append(
+              ("ROE 수익성", f"위험/적자 ({roe:.2f}%)", 0, 25)
+          )
 
         # [항목 2] 부채비율 (재무 안정성) - 25점 만점 세분화
         if debt_ratio <= 50:
@@ -244,92 +246,3 @@ if st.sidebar.button("정밀 분석 실행"):
           )
 
         # [항목 3] 영업이익률 (본업 경쟁력) - 25점 만점 세분화
-        if op_margin >= 15:
-          score += 25
-          score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"최상급 ({op_margin:.2f}%)", 25, 25)
-          )
-        elif op_margin >= 10:
-          score += 20
-          score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 20, 25)
-          )
-        elif op_margin >= 5:
-          score += 12
-          score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12, 25)
-          )
-        elif op_margin > 0:
-          score += 5
-          score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 5, 25)
-          )
-        else:
-          score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
-          )
-
-        # [항목 4] 시장 심리 및 뉴스 모멘텀 - 25점 만점 세분화
-        sentiment_score = 12  # 기본 중립 점수
-        sentiment_label = "중립"
-        if pos_count > neg_count * 2:
-          sentiment_score = 25
-          sentiment_label = f"매우 긍정 (호재 우세: {pos_count}건)"
-        elif pos_count > neg_count:
-          sentiment_score = 18
-          sentiment_label = f"긍정 (우세: {pos_count}건)"
-        elif pos_count == neg_count:
-          sentiment_score = 12
-          sentiment_label = "혼조/중립"
-        else:
-          sentiment_score = 5
-          sentiment_label = f"주의/부정 (우려: {neg_count}건)"
-
-        score += sentiment_score
-        score_details.append(
-            ("시장 심리 (뉴스 감성)", sentiment_label, sentiment_score, 25
-        )
-
-        # UI 시각화
-        st.success(f"정밀 분석 완료! (종목코드: {stock_code})")
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("현재 주가", f"{current_price:,} 원")
-        col2.metric("ROE (자기자본이익률)", f"{roe:.2f}%")
-        col3.metric("부채비율", f"{debt_ratio:.2f}%")
-        col4.metric("영업이익률", f"{op_margin:.2f}%")
-
-        st.markdown("---")
-        st.subheader(f"🎯 정밀 투자 적합도 총점: {score}점 / 100점")
-
-        if score >= 85:
-          st.success(
-              "✨ **[S등급] 투자 매력도가 매우 높은 최우수 우량 기업입니다!**"
-          )
-        elif score >= 70:
-          st.info(
-              "시장 평균 이상의 우수한 재무 구조와 모멘텀을 가진 기업입니다."
-          )
-        elif score >= 50:
-          st.warning(
-              "⚠️ **[보통] 일부 지표에 개선이 필요한 일반 수준의"
-              " 기업입니다.**"
-          )
-        else:
-          st.error(
-              "❌ **[주의] 재무 건전성 또는 시장 반응에 취약점이 발견된"
-              " 종목입니다.**"
-          )
-
-        st.markdown("### 📋 4대 핵심 영역 정밀 평가 표")
-        score_df = pd.DataFrame(
-            score_details,
-            columns=["평가 영역", "상세 진단 결과", "획득 점수", "배점"],
-        )
-        st.table(score_df)
-
-        # 뉴스 감성 분석 시각화 섹션
-        st.markdown("---")
-        st.subheader("📰 실시간 뉴스 키워드 감성 분석 결과")
-        n_col1, n_col2 = st.columns(2)
-        n_col1.metric("호재(긍정) 키워드 감지", f"{pos_count}건")
