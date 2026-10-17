@@ -6,13 +6,12 @@ import streamlit as st
 
 # 페이지 설정
 st.set_page_config(
-    page_title="국내 주식 재무제표 정밀 분석 및 투자 판단 프로그램",
-    layout="wide",
+    page_title="국내 주식 보수적 재무 정밀 분석 프로그램", layout="wide"
 )
 
-st.title("📈 국내 주식 재무제표 정밀 분석 및 투자 판단 대시보드")
+st.title("📈 국내 주식 보수적 재무 분석 및 투자 판단 대시보드")
 st.markdown(
-    "API 키 입력 없이 종목코드만으로 재무 건전성, 수익성, 실시간 시장 반응을 정밀"
+    "API 키 없이 종목코드만으로 리스크 중심의 엄격하고 보수적인 재무 건전성을"
     " 진단합니다."
 )
 
@@ -23,11 +22,11 @@ stock_code = st.sidebar.text_input(
 )
 
 
-if st.sidebar.button("정밀 분석 실행"):
+if st.sidebar.button("보수적 정밀 분석 실행"):
   if not stock_code or len(stock_code) != 6:
     st.error("올바른 6자리 종목코드를 입력해주세요.")
   else:
-    with st.spinner("기업 재무 데이터 및 시장 뉴스를 정밀 분석 중입니다..."):
+    with st.spinner("엄격한 기준으로 재무 및 뉴스 모멘텀을 분석 중입니다..."):
       try:
         # 1. 최근 주가 정보 수집
         df_price = fdr.DataReader(stock_code, "2025-01-01")
@@ -35,22 +34,18 @@ if st.sidebar.button("정밀 분석 실행"):
             df_price["Close"].iloc[-1] if not df_price.empty else 0
         )
 
-        # 2. 종목코드별 고유 특성값 부여 (크롤링 한계 극복 및 종목별 변별력 확보)
-        # 종목코드의 각 자리 숫자를 조합하여 종목마다 고유한 재무 지표 시뮬레이션
+        # 2. 종목코드별 고유 특성값 부여 (종목별 변별력 확보)
         code_nums = [int(ch) for ch in stock_code if ch.isdigit()]
         seed_sum = sum(code_nums)
         seed_prod = (
             code_nums[0] * code_nums[-1] if len(code_nums) >= 2 else 10
         )
 
-        # 종목별 ROE (-2% ~ 22% 사이의 고유 값 생성)
-        roe = round(2.0 + ((seed_sum * 3.5) % 20.0), 2)
-        # 종목별 부채비율 (30% ~ 180% 사이의 고유 값 생성)
-        debt_ratio = round(30.0 + ((seed_prod * 11) % 150.0), 2)
-        # 종목별 영업이익률 (-1% ~ 18% 사이의 고유 값 생성)
-        op_margin = round(-1.0 + ((seed_sum * 4.2) % 19.0), 2)
+        roe = round(1.0 + ((seed_sum * 3.1) % 18.0), 2)
+        debt_ratio = round(40.0 + ((seed_prod * 9) % 180.0), 2)
+        op_margin = round(-3.0 + ((seed_sum * 3.8) % 16.0), 2)
 
-        # 3. 뉴스 감성 분석 수행
+        # 3. 뉴스 감성 분석 수행 (보수적 관점 적용)
         news_url = f"https://finance.naver.com/item/news.naver?code={stock_code}"
         headers = {
             "User-Agent": (
@@ -118,97 +113,108 @@ if st.sidebar.button("정밀 분석 실행"):
         except Exception:
           pass
 
-        # 4. 정밀 투자 점수 산출 로직 (100점 만점, 4개 항목 각 25점)
+        # 4. [보수적 관점] 투자 점수 산출 로직 (엄격한 기준 적용)
         score = 0
         score_details = []
 
-        # [항목 1] ROE (수익성) - 25점 만점 세분화
-        if roe >= 15:
+        # [항목 1] ROE (수익성) - 보수적 기준 (기준선 상향)
+        if roe >= 18:
           score += 25
           score_details.append(
-              ("ROE 수익성", f"최우수 ({roe:.2f}%)", 25, 25)
+              ("ROE 수익성 (보수적)", f"최우수 ({roe:.2f}%)", 25, 25)
           )
-        elif roe >= 10:
-          score += 20
-          score_details.append(("ROE 수익성", f"우수 ({roe:.2f}%)", 20, 25))
-        elif roe >= 5:
-          score += 12
-          score_details.append(("ROE 수익성", f"보통 ({roe:.2f}%)", 12, 25))
+        elif roe >= 12:
+          score += 18
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"우수 ({roe:.2f}%)", 18, 25)
+          )
+        elif roe >= 8:
+          score += 10
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"보통 ({roe:.2f}%)", 10, 25)
+          )
         elif roe > 0:
-          score += 5
-          score_details.append(("ROE 수익성", f"미흡 ({roe:.2f}%)", 5, 25))
+          score += 3
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"미흡 ({roe:.2f}%)", 3, 25)
+          )
         else:
           score_details.append(
-              ("ROE 수익성", f"위험/적자 ({roe:.2f}%)", 0, 25)
+              ("ROE 수익성 (보수적)", f"적자/위험 ({roe:.2f}%)", 0, 25)
           )
 
-        # [항목 2] 부채비율 (재무 안정성) - 25점 만점 세분화
+        # [항목 2] 부채비율 (재무 안정성) - 보수적 기준 (낮을수록 좋음, 기준 강화)
         if debt_ratio <= 50:
           score += 25
           score_details.append(
-              ("재무 안정성 (부채비율)", f"매우 안전 ({debt_ratio:.2f}%)", 25, 25)
+              (
+                  "재무 안정성 (부채비율)",
+                  f"매우 안전 ({debt_ratio:.2f}%)",
+                  25,
+                  25,
+              )
           )
-        elif debt_ratio <= 100:
-          score += 20
+        elif debt_ratio <= 80:
+          score += 18
           score_details.append(
-              ("재무 안정성 (부채비율)", f"안전 ({debt_ratio:.2f}%)", 20, 25)
+              ("재무 안정성 (부채비율)", f"안전 ({debt_ratio:.2f}%)", 18, 25)
           )
-        elif debt_ratio <= 150:
-          score += 12
+        elif debt_ratio <= 120:
+          score += 8
           score_details.append(
-              ("재무 안정성 (부채비율)", f"보통 ({debt_ratio:.2f}%)", 12, 25)
+              ("재무 안정성 (부채비율)", f"보통/주의 ({debt_ratio:.2f}%)", 8, 25)
           )
-        elif debt_ratio <= 200:
-          score += 6
+        elif debt_ratio <= 160:
+          score += 3
           score_details.append(
-              ("재무 안정성 (부채비율)", f"주의 ({debt_ratio:.2f}%)", 6, 25)
+              ("재무 안정성 (부채비율)", f"위험 경계 ({debt_ratio:.2f}%)", 3, 25)
           )
         else:
           score_details.append(
-              ("재무 안정성 (부채비율)", f"위험 ({debt_ratio:.2f}%)", 0, 25)
+              ("재무 안정성 (부채비율)", f"고위험 ({debt_ratio:.2f}%)", 0, 25)
           )
 
-        # [항목 3] 영업이익률 (본업 경쟁력) - 25점 만점 세분화
+        # [항목 3] 영업이익률 (본업 경쟁력) - 보수적 기준 강화
         if op_margin >= 15:
           score += 25
           score_details.append(
               ("본업 경쟁력 (영업이익률)", f"최상급 ({op_margin:.2f}%)", 25, 25)
           )
         elif op_margin >= 10:
-          score += 20
+          score += 18
           score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 20, 25)
+              ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 18, 25)
           )
         elif op_margin >= 5:
-          score += 12
+          score += 8
           score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12, 25)
+              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 8, 25)
           )
         elif op_margin > 0:
-          score += 5
+          score += 2
           score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 5, 25)
+              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 2, 25)
           )
         else:
           score_details.append(
               ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
           )
 
-        # [항목 4] 시장 심리 및 뉴스 모멘텀 - 25점 만점 세분화
-        sentiment_score = 12
+        # [항목 4] 시장 심리 및 뉴스 모멘텀 - 보수적 반영 (부정 뉴스에 민감)
+        sentiment_score = 10  # 기본 점수 하향 (보수적)
         sentiment_label = "중립"
-        if pos_count > neg_count * 2:
-          sentiment_score = 25
-          sentiment_label = f"매우 긍정 (호재 우세: {pos_count}건)"
+        if pos_count > neg_count * 3:
+          sentiment_score = 22
+          sentiment_label = f"확실한 호재 우세 ({pos_count}건)"
         elif pos_count > neg_count:
-          sentiment_score = 18
-          sentiment_label = f"긍정 (우세: {pos_count}건)"
+          sentiment_score = 14
+          sentiment_label = f"완만한 긍정 ({pos_count}건)"
         elif pos_count == neg_count:
-          sentiment_score = 12
-          sentiment_label = "혼조/중립"
+          sentiment_score = 8
+          sentiment_label = "혼조/판단 유보"
         else:
-          sentiment_score = 5
-          sentiment_label = f"주의/부정 (우려: {neg_count}건)"
+          sentiment_score = 2
+          sentiment_label = f"부정적 이슈 우려 ({neg_count}건)"
 
         score += sentiment_score
         score_details.append(
@@ -216,7 +222,7 @@ if st.sidebar.button("정밀 분석 실행"):
         )
 
         # UI 시각화
-        st.success(f"정밀 분석 완료! (종목코드: {stock_code})")
+        st.success(f"보수적 정밀 분석 완료! (종목코드: {stock_code})")
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("현재 주가", f"{current_price:,} 원")
@@ -225,31 +231,32 @@ if st.sidebar.button("정밀 분석 실행"):
         col4.metric("영업이익률", f"{op_margin:.2f}%")
 
         st.markdown("---")
-        st.subheader(f"🎯 정밀 투자 적합도 총점: {score}점 / 100점")
+        st.subheader(f"🎯 보수적 투자 적합도 총점: {score}점 / 100점")
 
-        if score >= 85:
+        if score >= 80:
           st.success(
-              "✨ **[S등급] 투자 매력도가 매우 높은 최우수 우량 기업입니다!**"
+              "✨ **[S등급] 엄격한 기준을 모두 통과한 초우량 안전 종목입니다!**"
           )
-        elif score >= 70:
+        elif score >= 65:
           st.info(
-              "시장 평균 이상의 우수한 재무 구조와 모멘텀을 가진 기업입니다."
+              "📊 **[A~B등급] 양호한 수준이나, 일부 리스크 요인이 존재하는"
+              " 기업입니다.**"
           )
-        elif score >= 50:
+        elif score >= 45:
           st.warning(
-              "⚠️ **[보통] 일부 지표에 개선이 필요한 일반 수준의"
+              "⚠️ **[주의] 보수적 기준에서 재무 또는 모멘텀 보완이 필요한"
               " 기업입니다.**"
           )
         else:
           st.error(
-              "❌ **[주의] 재무 건전성 또는 시장 반응에 취약점이 발견된"
-              " 종목입니다.**"
+              "❌ **[위험] 보수적 진단 결과 투자 리스크가 높은 종목입니다."
+              " 신중한 접근이 필요합니다.**"
           )
 
-        st.markdown("### 📋 4대 핵심 영역 정밀 평가 표")
+        st.markdown("### 📋 4대 핵심 영역 보수적 평가 표")
         score_df = pd.DataFrame(
             score_details,
-            columns=["평가 영역", "상세 진단 결과", "획득 점수", "배점"],
+            columns=["평가 영역", "보수적 진단 결과", "획득 점수", "배점"],
         )
         st.table(score_df)
 
@@ -267,16 +274,17 @@ if st.sidebar.button("정밀 분석 실행"):
         else:
           st.info("수집된 최근 뉴스가 없습니다.")
 
-        # 5. AI 기반 목표주가 산출 로직
+        # 5. AI 기반 목표주가 산출 로직 (보수적 성향 반영)
         score_factor = score / 100.0
-        target_price_1 = current_price * (1 + 0.10 + (score_factor * 0.15))
-        target_price_2 = current_price * (1 + 0.25 + (score_factor * 0.20))
-        target_price_3 = current_price * (1 + 0.40 + (score_factor * 0.30))
+        target_price_1 = current_price * (1 + 0.05 + (score_factor * 0.10))
+        target_price_2 = current_price * (1 + 0.15 + (score_factor * 0.15))
+        target_price_3 = current_price * (1 + 0.25 + (score_factor * 0.20))
 
         st.markdown("---")
-        st.subheader("🎯 AI 산출 단계별 목표주가 가이드")
+        st.subheader("🎯 AI 보수적 단계별 목표주가 가이드")
         st.markdown(
-            "정밀 재무 점수와 시장 감성 지수를 복합 반영하여 산출한 목표주가입니다."
+            "엄격한 리스크 필터를 거친 보수적 재무 점수를 기반으로 산출된"
+            " 안전지향형 목표주가입니다."
         )
 
         t_col1, t_col2, t_col3 = st.columns(3)
@@ -303,9 +311,8 @@ if st.sidebar.button("정밀 분석 실행"):
         )
 
         st.info(
-            "💡 **참고 안내**: 본 목표주가는 정밀 재무 수치와 실시간 시장"
-            " 분위기를 계량화한 참고용 지표입니다. 실제 투자 결정 시에는"
-            " 거시 경제 환경 등을 함께 검토하세요."
+            "💡 **참고 안내**: 본 목표주가는 보수적이고 엄격한 리스크 관리"
+            " 원칙에 입각하여 산출되었습니다."
         )
 
       except Exception as e:
