@@ -217,25 +217,3 @@ if st.sidebar.button("AI 정밀 분석 및 익일 예측 실행"):
       )
     elif op_margin >= 10:
       score += 18
-      score_details.append(
-          ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 18, 25)
-      )
-    elif op_margin >= 5:
-      score += 10
-      score_details.append(
-          ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 10, 25)
-      )
-    elif op_margin > 0:
-      score += 4
-      score_details.append(
-          ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 4, 25)
-      )
-    else:
-      score_details.append(
-          ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 25)
-      )
-
-    # [항목 4] 코스피 최근 1주일간 추세 연동성 (25점 만점)
-    market_score = 25
-    market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
-    if kospi_weekly_change
