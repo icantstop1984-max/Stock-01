@@ -63,8 +63,7 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
         kospi_current = (
             df_kospi["Close"].iloc[-1] if not df_kospi.empty else 2500
         )
-        
-        # 최근 1주일(약 5거래일 전) 데이터 추출
+
         if len(df_kospi) >= 5:
           kospi_week_ago = df_kospi["Close"].iloc[-5]
         elif len(df_kospi) > 1:
@@ -76,7 +75,6 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
             (kospi_current - kospi_week_ago) / kospi_week_ago
         ) * 100
 
-        # 당일 코스피 등락률 별도 계산
         kospi_prev = (
             df_kospi["Close"].iloc[-2] if len(df_kospi) > 1 else kospi_current
         )
@@ -88,7 +86,7 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
             df_kosdaq["Close"].iloc[-1] if not df_kosdaq.empty else 800
         )
 
-        # 상단 시장 지수 UI 표시 (1주일 추세 포함)
+        # 상단 시장 지수 UI 표시
         st.subheader("🌐 실시간 국내 주요 시장 지수 및 1주일 추세")
         m_col1, m_col2 = st.columns(2)
         m_col1.metric(
@@ -108,7 +106,6 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
         # 3. 네이버 금융 실시간 재무 데이터 파싱
         fin_table = get_naver_financials(stock_code)
 
-        # 기본 안전값 설정 (크롤링 예외 대비)
         code_nums = [int(ch) for ch in stock_code if ch.isdigit()]
         seed_sum = sum(code_nums)
         roe = 8.0
@@ -237,7 +234,9 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
           market_label = f"1주 강한 상승 추세 ({kospi_weekly_change:+.2f}%)"
         elif kospi_weekly_change >= 0.0:
           market_score = 20
-          market_label = f"1주 완만한 상승/보합 ({kospi_weekly_change:+.2f}%)"
+          market_label = (
+              f"1주 완만한 상승/보합 ({kospi_weekly_change:+.2f}%)"
+          )
         elif kospi_weekly_change >= -2.0:
           market_score = 12
           market_label = f"1주 완만한 조정 추세 ({kospi_weekly_change:+.2f}%)"
@@ -253,11 +252,4 @@ if st.sidebar.button("실시간 정밀 분석 실행"):
         # UI 시각화
         st.success(f"실시간 정밀 분석 완료! (종목코드: {stock_code})")
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("현재 주가", f"{current_price:,} 원")
-        col2.metric("실시간 ROE", f"{roe:.2f}%")
-        col3.metric("실시간 부채비율", f"{debt_ratio:.2f}%")
-        col4.metric("실시간 영업이익률", f"{op_margin:.2f}%")
-
-        st.markdown("---")
-        st.subheader(
+        col1, col2, col3, col4
