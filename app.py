@@ -24,7 +24,7 @@ dart_api_key = st.sidebar.text_input(
 stock_code = st.sidebar.text_input(
     "종목코드 입력 (예: 005930)", value="005930"
 )
-analysis_year = st.sidebar.selectbox("분석 기준 연도", [2024, 2023, 2022], index=0)
+analysis_year = st.sidebar.selectbox("분석 기준 연도", [2026, 2025, 2024, 2023, 2022], index=0)
 
 
 # DART 재무제표 데이터를 직접 가져오는 함수 (패키지 충돌 방지용)
