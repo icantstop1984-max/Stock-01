@@ -151,13 +151,18 @@ if st.sidebar.button("분석 실행"):
         )
         st.table(score_df)
 
-        # 4. 뉴스 및 경제지 키워드 감성 분석
+        # 4. 뉴스 및 경제지 키워드 감성 분석 (개선됨)
         st.markdown("---")
         st.subheader("📰 실시간 뉴스 키워드 감성 분석")
 
         with st.spinner("최근 경제 뉴스 및 미디어 반응을 분석 중입니다..."):
-          news_url = f"https://finance.naver.com/item/news_news.nhn?code={stock_code}&page=1"
-          headers = {"User-Agent": "Mozilla/5.0"}
+          news_url = f"https://finance.naver.com/item/news.naver?code={stock_code}"
+          headers = {
+              "User-Agent": (
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                  " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              )
+          }
           news_list = []
           pos_count = 0
           neg_count = 0
@@ -166,8 +171,22 @@ if st.sidebar.button("분석 실행"):
             news_res = requests.get(news_url, headers=headers)
             if news_res.status_code == 200:
               soup = BeautifulSoup(news_res.text, "html.parser")
-              titles = soup.select(".title")
-              news_list = [t.text.strip() for t in titles[:5]]
+              # 뉴스 제목이 포함된 태그들을 폭넓게 탐색 (table 내부의 a 태그 등)
+              for a_tag in soup.select("table.type5 tr td.title a"):
+                title_text = a_tag.text.strip()
+                if title_text and title_text not in news_list:
+                  news_list.append(title_text)
+                if len(news_list) >= 5:  # 최근 뉴스 5개만 수집
+                  break
+
+              # 만약 위 셀렉터로 안 잡힐 경우 대안 셀렉터 탐색
+              if not news_list:
+                for a_tag in soup.select(".title a"):
+                  title_text = a_tag.text.strip()
+                  if title_text and title_text not in news_list:
+                    news_list.append(title_text)
+                  if len(news_list) >= 5:
+                    break
 
               positive_words = [
                   "상승",
@@ -203,8 +222,8 @@ if st.sidebar.button("분석 실행"):
                 for word in negative_words:
                   if word in title:
                     neg_count += 1
-          except Exception:
-            pass
+          except Exception as ex:
+            st.warning(f"뉴스 수집 중 예외 발생: {ex}")
 
           n_col1, n_col2 = st.columns(2)
           n_col1.metric("긍정 키워드 감지 횟수", f"{pos_count}건")
@@ -231,7 +250,10 @@ if st.sidebar.button("분석 실행"):
               for idx, title in enumerate(news_list, 1):
                 st.markdown(f"{idx}. {title}")
           else:
-            st.info("수집된 최근 뉴스가 없습니다.")
+            st.info(
+                "수집된 최근 뉴스가 없습니다. (네이버 금융 페이지 구조에 따라"
+                " 일시적일 수 있습니다.)"
+            )
 
         # 5. AI 기반 목표주가 산출 로직
         score_factor = score / 100.0
