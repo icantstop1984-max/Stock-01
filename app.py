@@ -11,7 +11,7 @@ st.set_page_config(
 
 st.title("📈 국내 주식 시장 지수 연동 보수적 재무 분석 대시보드")
 st.markdown(
-    "API 키 없이 종목코드와 실시간 시장 지수(코스피/코스닥)를 연동하여"
+    "API 키 입력 없이 종목코드와 실시간 시장 지수(코스피/코스닥)를 연동하여"
     " 거시 경제 환경을 고려한 보수적 정밀 진단을 수행합니다."
 )
 
@@ -35,7 +35,9 @@ if st.sidebar.button("시장 연동 보수적 정밀 분석 실행"):
         kospi_current = (
             df_kospi["Close"].iloc[-1] if not df_kospi.empty else 2500
         )
-        kospi_prev = df_kospi["Close"].iloc[-2] if len(df_kospi) > 1 else kospi_current
+        kospi_prev = (
+            df_kospi["Close"].iloc[-2] if len(df_kospi) > 1 else kospi_current
+        )
         kospi_change = ((kospi_current - kospi_prev) / kospi_prev) * 100
 
         df_kosdaq = fdr.DataReader("KQ11", "2025-01-01")
@@ -43,7 +45,9 @@ if st.sidebar.button("시장 연동 보수적 정밀 분석 실행"):
             df_kosdaq["Close"].iloc[-1] if not df_kosdaq.empty else 800
         )
         kosdaq_prev = (
-            df_kosdaq["Close"].iloc[-2] if len(df_kosdaq) > 1 else kosdaq_current
+            df_kosdaq["Close"].iloc[-2]
+            if len(df_kosdaq) > 1
+            else kosdaq_current
         )
         kosdaq_change = ((kosdaq_current - kosdaq_prev) / kosdaq_prev) * 100
 
@@ -86,7 +90,7 @@ if st.sidebar.button("시장 연동 보수적 정밀 분석 실행"):
         # 시장 지수가 하락세일 경우 보수적 감점 패널티 적용
         market_penalty = 0
         if kospi_change < 0:
-          market_penalty = 5  # 시장 하락장 시 5점 감점 (보수적 방어)
+          market_penalty = 5
 
         # [항목 1] ROE (수익성) - 33점 만점
         if roe >= 18:
@@ -159,4 +163,19 @@ if st.sidebar.button("시장 연동 보수적 정밀 분석 실행"):
         elif op_margin >= 5:
           score += 12
           score_details.append(
-              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12
+              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12, 34)
+          )
+        elif op_margin > 0:
+          score += 4
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 4, 34)
+          )
+        else:
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 34)
+          )
+
+        # 시장 하락장 패널티 반영
+        if market_penalty > 0:
+          score = max(0, score - market_penalty)
+          score_details.append
