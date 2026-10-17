@@ -91,4 +91,200 @@ if st.sidebar.button("시장 연동 보수적 정밀 분석 실행"):
         market_penalty = 5 if kospi_change < 0 else 0
 
         # [항목 1] ROE (수익성) - 33점 만점
-        if ro
+        if roe >= 18:
+          score += 33
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"최우수 ({roe:.2f}%)", 33, 33)
+          )
+        elif roe >= 12:
+          score += 24
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"우수 ({roe:.2f}%)", 24, 33)
+          )
+        elif roe >= 8:
+          score += 14
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"보통 ({roe:.2f}%)", 14, 33)
+          )
+        elif roe > 0:
+          score += 5
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"미흡 ({roe:.2f}%)", 5, 33)
+          )
+        else:
+          score_details.append(
+              ("ROE 수익성 (보수적)", f"적자/위험 ({roe:.2f}%)", 0, 33)
+          )
+
+        # [항목 2] 부채비율 (재무 안정성) - 33점 만점
+        if debt_ratio <= 50:
+          score += 33
+          score_details.append(
+              (
+                  "재무 안정성 (부채비율)",
+                  f"매우 안전 ({debt_ratio:.2f}%)",
+                  33,
+                  33,
+              )
+          )
+        elif debt_ratio <= 80:
+          score += 24
+          score_details.append(
+              ("재무 안정성 (부채비율)", f"안전 ({debt_ratio:.2f}%)", 24, 33)
+          )
+        elif debt_ratio <= 120:
+          score += 12
+          score_details.append(
+              ("재무 안정성 (부채비율)", f"보통/주의 ({debt_ratio:.2f}%)", 12, 33)
+          )
+        elif debt_ratio <= 160:
+          score += 4
+          score_details.append(
+              ("재무 안정성 (부채비율)", f"위험 경계 ({debt_ratio:.2f}%)", 4, 33)
+          )
+        else:
+          score_details.append(
+              ("재무 안정성 (부채비율)", f"고위험 ({debt_ratio:.2f}%)", 0, 33)
+          )
+
+        # [항목 3] 영업이익률 (본업 경쟁력) - 34점 만점
+        if op_margin >= 15:
+          score += 34
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"최상급 ({op_margin:.2f}%)", 34, 34)
+          )
+        elif op_margin >= 10:
+          score += 25
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"우수 ({op_margin:.2f}%)", 25, 34)
+          )
+        elif op_margin >= 5:
+          score += 12
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"보통 ({op_margin:.2f}%)", 12, 34)
+          )
+        elif op_margin > 0:
+          score += 4
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"저조 ({op_margin:.2f}%)", 4, 34)
+          )
+        else:
+          score_details.append(
+              ("본업 경쟁력 (영업이익률)", f"적자 ({op_margin:.2f}%)", 0, 34)
+          )
+
+        # 시장 하락장 패널티 반영
+        if market_penalty > 0:
+          score = max(0, score - market_penalty)
+          score_details.append(
+              (
+                  "거시경제 반영 (코스피 하락장)",
+                  f"시장 리스크 주의 (-{market_penalty}점)",
+                  -market_penalty,
+                  0,
+              )
+          )
+
+        # UI 시각화
+        st.success(f"시장 연동 보수적 분석 완료! (종목코드: {stock_code})")
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("현재 주가", f"{current_price:,} 원")
+        col2.metric("ROE (자기자본이익률)", f"{roe:.2f}%")
+        col3.metric("부채비율", f"{debt_ratio:.2f}%")
+        col4.metric("영업이익률", f"{op_margin:.2f}%")
+
+        st.markdown("---")
+        st.subheader(
+            f"🎯 시장 연동 보수적 투자 적합도 총점: {score}점 / 100점"
+        )
+
+        if score >= 80:
+          st.success(
+              "✨ **[S등급] 거시 경제 변동성을 이겨내는 초우량 안전"
+              " 종목입니다!**"
+          )
+        elif score >= 65:
+          st.info(
+              "📊 **[A~B등급] 양호한 수준이나, 시장 환경에 따른 모니터링이"
+              " 필요합니다.**"
+          )
+        elif score >= 45:
+          st.warning(
+              "⚠️ **[주의] 보수적 기준 및 시장 리스크를 고려할 때 신중한"
+              " 접근이 필요합니다.**"
+          )
+        else:
+          st.error(
+              "❌ **[위험] 시장 하락 및 재무 취약점이 겹친 고위험 종목입니다."
+              " 주의하세요.**"
+          )
+
+        st.markdown("### 📋 3대 재무 영역 및 시장 환경 평가 표")
+        score_df = pd.DataFrame(
+            score_details,
+            columns=["평가 영역", "보수적 진단 결과", "획득 점수", "배점"],
+        )
+        st.table(score_df)
+
+        # 5. AI 기반 목표주가 산출 로직 (시장 국면 반영)
+        score_factor = score / 100.0
+        market_multiplier = 1.0 + (kospi_change / 100.0 * 0.5)
+
+        target_price_1 = (
+            current_price * (1 + 0.05 + (score_factor * 0.10))
+            * market_multiplier
+        )
+        target_price_2 = (
+            current_price * (1 + 0.15 + (score_factor * 0.15))
+            * market_multiplier
+        )
+        target_price_3 = (
+            current_price * (1 + 0.25 + (score_factor * 0.20))
+            * market_multiplier
+        )
+
+        st.markdown("---")
+        st.subheader("🎯 AI 시장 연동 보수적 목표주가 가이드")
+        st.markdown(
+            "엄격한 재무 점수와 실시간 코스피/코스닥 지수 흐름을 복합 반영한"
+            " 목표주가입니다."
+        )
+
+        t_col1, t_col2, t_col3 = st.columns(3)
+
+        t_col1.metric(
+            "🥉 1차 목표주가 (안정형)",
+            f"{int(target_price_1):,} 원",
+            (
+                f"+{((target_price_1 / current_price - 1) * 100):.1f}%"
+                if current_price > 0
+                else "0%"
+            ),
+        )
+        t_col2.metric(
+            "🥈 2차 목표주가 (적정형)",
+            f"{int(target_price_2):,} 원",
+            (
+                f"+{((target_price_2 / current_price - 1) * 100):.1f}%"
+                if current_price > 0
+                else "0%"
+            ),
+        )
+        t_col3.metric(
+            "🥇 3차 목표주가 (공격형)",
+            f"{int(target_price_3):,} 원",
+            (
+                f"+{((target_price_3 / current_price - 1) * 100):.1f}%"
+                if current_price > 0
+                else "0%"
+            ),
+        )
+
+        st.info(
+            "💡 **참고 안내**: 본 목표주가는 거시 경제 지수 변동과 보수적 재무"
+            " 건전성 기준을 함께 반영하여 산출되었습니다."
+        )
+
+      except Exception as e:
+        st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
